@@ -27,9 +27,11 @@ const state = {
   photo: null,
 };
 
-const HINT_OBJECTS = 'Arrastra para mover · Pellizca para escalar · Gira con dos dedos';
+const HINT_OBJECTS = 'Arrastra para mover, pellizca para cambiar el tamaño y gira con dos dedos.';
 
-let renderer, cam, objectMode, faceMode, xrMode;
+let renderer, objectMode, faceMode, xrMode;
+const cam = new CameraFeed(video);
+const TILTS = ['-2.5deg', '1.8deg', '-1.2deg'];
 let layout = null;
 
 /* ------------------------------ utilidades ------------------------------ */
@@ -57,20 +59,65 @@ function loading(msg) {
 
 const activeMode = () => (state.mode === 'face' ? faceMode : objectMode);
 
+// Qué navegador es: en iPhone cada uno guarda el permiso de cámara en un lugar distinto.
+function browserKind() {
+  const ua = navigator.userAgent;
+  if (/FBAN|FBAV|FB_IAB|Instagram|Line\/|Snapchat|musical_ly|BytedanceWebview|TikTok|LinkedInApp|Twitter/i.test(ua)) return 'inapp';
+  if (/CriOS/.test(ua)) return 'chrome-ios';
+  if (/FxiOS/.test(ua)) return 'firefox-ios';
+  if (/EdgiOS/.test(ua)) return 'edge-ios';
+  if (isIOS()) return 'safari';
+  if (/Android/.test(ua)) return 'android';
+  return 'desktop';
+}
+
+function deniedSteps() {
+  switch (browserKind()) {
+    case 'inapp':
+      return 'Estás en el navegador interno de otra app, que no permite usar la cámara.\nToca el menú (⋯) y elige "Abrir en Safari" o "Abrir en el navegador".';
+    case 'chrome-ios':
+      return 'Chrome no tiene permiso para usar la cámara del iPhone.\n1. Abre Ajustes del iPhone › Apps › Chrome.\n2. Activa Cámara.\n3. Vuelve aquí y toca Reintentar.\nTambién puedes abrir este mismo link en Safari.';
+    case 'firefox-ios':
+    case 'edge-ios':
+      return 'Este navegador no tiene permiso para usar la cámara.\nActívalo en Ajustes del iPhone › Apps › (tu navegador) › Cámara, o abre el link en Safari.';
+    case 'safari':
+      return 'Safari tiene la cámara bloqueada para este sitio.\n1. Toca "aA" (o el ícono de ajustes) junto a la dirección.\n2. Entra a Ajustes del sitio web › Cámara y elige Preguntar o Permitir.\n3. Toca Reintentar.\nSi no aparece esa opción, revisa Ajustes del iPhone › Apps › Safari › Cámara.';
+    case 'android':
+      return 'El navegador tiene la cámara bloqueada para este sitio.\nToca el ícono junto a la dirección › Permisos › Cámara › Permitir, y luego Reintentar.';
+    default:
+      return 'El navegador tiene la cámara bloqueada para este sitio. Permítela desde el ícono junto a la dirección y toca Reintentar.';
+  }
+}
+
 function cameraErrorMessage(err) {
   if (!window.isSecureContext) return 'La cámara solo funciona con HTTPS. Abre la app desde una dirección https://';
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return browserKind() === 'inapp'
+      ? deniedSteps()
+      : 'Este navegador no permite usar la cámara. Abre el link en Safari (iPhone) o Chrome (Android).';
+  }
   switch (err?.name) {
     case 'NotAllowedError':
     case 'SecurityError':
-      return 'No hay permiso para usar la cámara. Habilítalo en los ajustes del navegador y vuelve a intentar.';
+      return deniedSteps();
     case 'NotFoundError':
     case 'OverconstrainedError':
       return 'No se encontró una cámara en este dispositivo.';
     case 'NotReadableError':
-      return 'La cámara está siendo usada por otra app. Ciérrala y vuelve a intentar.';
+    case 'AbortError':
+      return 'Otra app está usando la cámara. Ciérrala y toca Reintentar.';
     default:
       return 'No se pudo abrir la cámara' + (err?.message ? `: ${err.message}` : '.');
   }
+}
+
+// Deja rastro en la consola (el servidor de desarrollo la muestra en la terminal).
+async function reportCameraError(err) {
+  let perm = 'n/a';
+  try {
+    perm = (await navigator.permissions?.query({ name: 'camera' }))?.state ?? 'n/a';
+  } catch {}
+  console.error(`[camara] ${err?.name}: ${err?.message} | navegador=${browserKind()} permiso=${perm} | ${navigator.userAgent}`);
 }
 
 /* -------------------------------- layout -------------------------------- */
@@ -106,6 +153,10 @@ function cropOf(l) {
 
 async function startCamera(facing) {
   await cam.start(facing);
+  applyCamera();
+}
+
+function applyCamera() {
   relayout();
   const m = cam.mirrored;
   mirrorEl.classList.toggle('mirrored', m);
@@ -156,9 +207,13 @@ function renderCareerChips() {
     const b = document.createElement('button');
     b.className = 'chip';
     b.style.setProperty('--c', c.color);
-    const sub = state.mode === 'face' ? c.face : c.world;
-    b.innerHTML = `<span class="em">${c.emoji}${state.mode === 'object' ? '<span class="plus">+</span>' : ''}</span><span class="txt"><b>${c.short}</b><small>${sub}</small></span>`;
-    if (state.mode === 'face' && c.id === state.career) b.classList.add('active');
+    b.style.setProperty('--r', TILTS[CAREERS.indexOf(c)]);
+    const face = state.mode === 'face';
+    const sub = face ? c.face : c.world;
+    b.setAttribute('aria-label', face ? `${c.short}: ${sub}` : `Agregar ${sub.toLowerCase()} (${c.short})`);
+    if (face) b.setAttribute('aria-pressed', String(c.id === state.career));
+    b.innerHTML = `<span class="em" aria-hidden="true">${c.emoji}</span><span class="txt"><b>${c.short}</b><small>${sub}</small></span>${face ? '' : '<span class="plus" aria-hidden="true">+</span>'}`;
+    if (face && c.id === state.career) b.classList.add('active');
     b.addEventListener('click', () => onCareer(c.id));
     box.appendChild(b);
   }
@@ -223,8 +278,10 @@ function updateFramePreview() {
   const c = careerById(state.career);
   fp.style.setProperty('--career', c.color);
   fp.querySelector('b').textContent = `${c.emoji} ${c.name}`;
-  fp.querySelector('small').textContent = `${dateLabel()} · Realidad Aumentada`;
+  fp.querySelector('small').textContent = dateLabel();
   $('#btn-frame').classList.toggle('on', state.frame);
+  $('#btn-frame').setAttribute('aria-pressed', String(state.frame));
+  $('#btn-shutter').style.setProperty('--c', c.color);
 }
 
 /* -------------------------------- gestos -------------------------------- */
@@ -297,7 +354,7 @@ async function capture() {
 
 async function finishPhoto(canvas) {
   applyFilter(canvas, filterById(state.filter));
-  if (state.frame) drawFrame(canvas, careerById(state.career));
+  if (state.frame) await drawFrame(canvas, careerById(state.career));
   const blob = await toBlob(canvas);
   const name = photoFileName();
   const file = new File([blob], name, { type: 'image/jpeg' });
@@ -352,6 +409,7 @@ function renderXrChips() {
     const b = document.createElement('button');
     b.className = 'chip' + (c.id === state.career ? ' active' : '');
     b.style.setProperty('--c', c.color);
+    b.style.setProperty('--r', TILTS[CAREERS.indexOf(c)]);
     b.innerHTML = `<span class="em">${c.emoji}</span><span class="txt"><b>${c.short}</b><small>${c.world}</small></span>`;
     b.addEventListener('click', () => {
       state.career = c.id;
@@ -473,14 +531,29 @@ function loop(time, frame) {
 
 async function boot() {
   const errEl = $('#splash-error');
+  const btn = $('#btn-start');
   errEl.hidden = true;
   if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
     errEl.textContent = cameraErrorMessage();
     errEl.hidden = false;
+    reportCameraError({ name: 'NoMediaDevices', message: `secure=${window.isSecureContext}` });
     return;
   }
-  $('#btn-start').disabled = true;
-  $('#btn-start').textContent = 'Abriendo cámara…';
+  btn.disabled = true;
+  btn.textContent = 'Abriendo cámara…';
+
+  // Lo primero al tocar el botón es pedir la cámara, para que el navegador muestre el
+  // aviso de permiso dentro del gesto del usuario (antes de cargar todo el 3D).
+  try {
+    await cam.start('environment');
+  } catch (err) {
+    reportCameraError(err);
+    errEl.textContent = cameraErrorMessage(err);
+    errEl.hidden = false;
+    btn.disabled = false;
+    btn.textContent = 'Reintentar';
+    return;
+  }
 
   if (!renderer) {
     renderer = new THREE.WebGLRenderer({
@@ -497,7 +570,6 @@ async function boot() {
     const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     pmrem.dispose();
 
-    cam = new CameraFeed(video);
     objectMode = new ObjectMode(env);
     faceMode = new FaceMode(env, video);
     objectMode.onSelectionChange = (item) => {
@@ -519,17 +591,7 @@ async function boot() {
       $('#btn-xr').hidden = false;
     });
   }
-
-  try {
-    await startCamera('environment');
-  } catch (err) {
-    console.error(err);
-    errEl.textContent = cameraErrorMessage(err);
-    errEl.hidden = false;
-    $('#btn-start').disabled = false;
-    $('#btn-start').textContent = 'Reintentar';
-    return;
-  }
+  applyCamera();
 
   $('#splash').hidden = true;
   $('#ui').hidden = false;
@@ -544,6 +606,13 @@ async function boot() {
   setTimeout(() => faceMode.load().catch(() => {}), 1500);
 }
 
+function renderSplash() {
+  $('#splash-stack').innerHTML = CAREERS.map(
+    (c, i) => `<span class="stk" style="--c:${c.color};--r:${['-4deg', '3deg', '-2deg'][i]};--d:${0.15 + i * 0.14}s"><span class="em">${c.emoji}</span>${c.short}</span>`,
+  ).join('');
+}
+
+renderSplash();
 $('#btn-start').addEventListener('click', boot);
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {

@@ -129,32 +129,51 @@ export function dateLabel(d = new Date()) {
   return d.toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-// Marco personalizado con el nombre de la carrera (igual al de la vista previa).
-export function drawFrame(canvas, career) {
+// Marco tipo foto impresa (mismas medidas que #frame-preview en style.css):
+// borde blanco de 3u, franja inferior de 17u con el sticker de la carrera y la fecha.
+const FRAME_FONT = '"Anybody", ui-sans-serif, system-ui, -apple-system, sans-serif';
+
+export async function drawFrame(canvas, career) {
+  try {
+    await Promise.all([document.fonts.load(`800 40px ${FRAME_FONT}`), document.fonts.load(`600 40px ${FRAME_FONT}`)]);
+  } catch {}
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
   const u = Math.min(W, H) / 100;
-  const pad = 3 * u;
+  const side = 3 * u, strip = 17 * u;
   ctx.save();
-  const grad = ctx.createLinearGradient(0, H - 26 * u, 0, H);
-  grad.addColorStop(0, 'rgba(0,0,0,0)');
-  grad.addColorStop(1, 'rgba(0,0,0,0.7)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, H - 26 * u, W, 26 * u);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, side);
+  ctx.fillRect(0, 0, side, H);
+  ctx.fillRect(W - side, 0, side, H);
+  ctx.fillRect(0, H - strip, W, strip);
 
-  ctx.strokeStyle = career.color;
-  ctx.lineWidth = 1.4 * u;
-  roundRectPath(ctx, pad, pad, W - 2 * pad, H - 2 * pad, 5 * u);
-  ctx.stroke();
+  // Sticker con el nombre de la carrera, girado -2°.
+  if ('fontStretch' in ctx) ctx.fontStretch = 'expanded';
+  ctx.font = `800 ${5 * u}px ${FRAME_FONT}`;
+  const label = `${career.emoji} ${career.name}`;
+  const tw = ctx.measureText(label).width;
+  const padX = 2.6 * u, h = 7.6 * u;
+  const cy = H - strip / 2;
+  ctx.translate(4 * u + (tw + 2 * padX) / 2, cy);
+  ctx.rotate((-2 * Math.PI) / 180);
+  ctx.fillStyle = career.color;
+  roundRectPath(ctx, -(tw + 2 * padX) / 2, -h / 2, tw + 2 * padX, h, 2 * u);
+  ctx.fill();
+  ctx.fillStyle = '#121766';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, -tw / 2, 0.2 * u);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-  const font = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
-  ctx.fillStyle = '#fff';
-  ctx.textBaseline = 'alphabetic';
-  ctx.font = `800 ${6 * u}px ${font}`;
-  ctx.fillText(`${career.emoji} ${career.name}`, pad + 4 * u, H - pad - 9 * u);
-  ctx.globalAlpha = 0.85;
-  ctx.font = `500 ${3.6 * u}px ${font}`;
-  ctx.fillText(`${dateLabel()} · Realidad Aumentada`, pad + 4 * u, H - pad - 4 * u);
+  if ('fontStretch' in ctx) ctx.fontStretch = 'normal';
+  ctx.font = `600 ${3.2 * u}px ${FRAME_FONT}`;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#121766';
+  const date = dateLabel();
+  const dw = ctx.measureText(date).width;
+  // La fecha solo cabe si el sticker no la tapa (en fotos verticales angostas va debajo).
+  if (4 * u + tw + 2 * padX + 3 * u + dw < W - 4 * u) ctx.fillText(date, W - 4 * u, cy);
   ctx.restore();
 }
 

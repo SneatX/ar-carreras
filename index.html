@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
-    <meta name="theme-color" content="#0b0d12" />
+    <meta name="theme-color" content="#2433d6" />
     <meta name="description" content="Fotos con Realidad Aumentada: modelos 3D y filtros de Software, Medicina e Ingeniería Civil." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -12,6 +12,9 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" type="image/png" href="./icons/icon-192.png" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anybody:wdth,wght@50..150,100..900&display=swap" />
     <title>AR Carreras</title>
   </head>
   <body>
@@ -82,30 +85,24 @@
 
       <!-- Pantalla inicial -->
       <section id="splash">
-        <div class="splash-card">
-          <div class="logo" aria-hidden="true">
-            <span style="--c:#4cc9f0">💻</span><span style="--c:#ef476f">🩺</span><span style="--c:#ffb703">🏗️</span>
-          </div>
-          <h1>AR Carreras</h1>
-          <p class="lead">Tómate fotos con elementos 3D de tu carrera usando realidad aumentada.</p>
-          <ul class="features">
-            <li><b>Objetos 3D</b> laptop, corazón y grúa que puedes mover, escalar y girar.</li>
-            <li><b>Selfie</b> gafas, espejo frontal con estetoscopio o casco que siguen tu cara.</li>
-            <li><b>Filtros y marco</b> antes de capturar; guarda o comparte con un toque.</li>
-          </ul>
+        <div class="splash-inner">
+          <p class="wordmark">AR Carreras</p>
+          <div class="stack" id="splash-stack" aria-hidden="true"></div>
+          <h1>Tómate la foto con tu carrera</h1>
+          <p class="lead">Pon una laptop, un corazón o una grúa en 3D a tu lado, o usa la cámara frontal para probarte gafas, estetoscopio o casco.</p>
           <button id="btn-start" class="primary">Abrir cámara</button>
-          <p id="splash-error" class="error" hidden></p>
-          <p class="fine">Funciona en iPhone y Android desde el navegador. La cámara se procesa solo en tu dispositivo.</p>
+          <p id="splash-error" class="error" role="alert" hidden></p>
+          <p class="fine">La imagen se procesa solo en tu teléfono. Nada se sube a internet.</p>
         </div>
       </section>
 
       <!-- Resultado -->
       <section id="result" hidden>
-        <img id="result-img" alt="Foto capturada" />
+        <div class="print"><img id="result-img" alt="Tu foto con realidad aumentada" /></div>
         <div class="result-bar">
           <p id="result-hint" class="fine"></p>
           <div class="result-actions">
-            <button id="btn-retake" class="pill">Otra foto</button>
+            <button id="btn-retake" class="pill ghost">Otra foto</button>
             <button id="btn-save" class="pill">Guardar</button>
             <button id="btn-share" class="primary">Compartir</button>
           </div>
