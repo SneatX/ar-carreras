@@ -1,0 +1,20 @@
+{
+  "name": "ar-carreras",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "setup-assets": "node scripts/setup-assets.mjs",
+    "dev": "npm run setup-assets && vite --host",
+    "build": "npm run setup-assets && vite build",
+    "preview": "vite preview --host"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "1.1.1",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-basic-ssl": "2.3.0",
+    "vite": "8.3.5"
+  }
+}

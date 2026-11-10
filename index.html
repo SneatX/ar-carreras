@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#0b0d12" />
+    <meta name="description" content="Fotos con Realidad Aumentada: modelos 3D y filtros de Software, Medicina e Ingeniería Civil." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="AR Carreras" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/png" href="./icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <title>AR Carreras</title>
+  </head>
+  <body>
+    <div id="app">
+      <!-- Cámara + capa 3D -->
+      <div id="stage">
+        <div id="mirror">
+          <video id="video" playsinline muted autoplay></video>
+          <canvas id="gl"></canvas>
+        </div>
+        <div id="frame-preview" hidden>
+          <div class="fp-label"><b></b><small></small></div>
+        </div>
+      </div>
+
+      <!-- Interfaz sobre la cámara -->
+      <div id="ui" hidden>
+        <header class="topbar">
+          <div class="seg" role="tablist" aria-label="Modo">
+            <button role="tab" data-mode="object" class="active">Objetos 3D</button>
+            <button role="tab" data-mode="face">Selfie</button>
+          </div>
+          <div class="top-actions">
+            <button id="btn-xr" class="pill" hidden title="Colocar en el piso real (Android)">AR piso</button>
+            <button id="btn-flip" class="icon-btn" aria-label="Cambiar cámara">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7h-3.2l-1.6-2H8.8L7.2 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1Z"/><path d="M9 12.5a3 3 0 0 1 5.2-2M15 13.5a3 3 0 0 1-5.2 2"/><path d="m14.5 8.6-.2 2 2-.3M9.5 17.4l.2-2-2 .3"/></svg>
+            </button>
+          </div>
+        </header>
+
+        <p id="hint" class="hint"></p>
+
+        <footer class="bottombar">
+          <div id="object-tools" class="object-tools" hidden>
+            <button id="btn-delete" class="pill small">Quitar</button>
+            <button id="btn-clear" class="pill small">Limpiar todo</button>
+          </div>
+          <div id="filters" class="filters" hidden></div>
+          <div id="careers" class="careers"></div>
+          <div class="controls">
+            <button id="btn-filter" class="icon-btn lg" aria-label="Filtros">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="9" r="5"/><circle cx="15" cy="9" r="5"/><circle cx="12" cy="15" r="5"/></svg>
+            </button>
+            <button id="btn-shutter" class="shutter" aria-label="Tomar foto"><span></span></button>
+            <button id="btn-frame" class="icon-btn lg" aria-label="Marco">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M7 16h7"/></svg>
+            </button>
+          </div>
+        </footer>
+      </div>
+
+      <!-- Overlay para WebXR (Android) -->
+      <div id="xr-overlay" hidden>
+        <header class="topbar">
+          <button id="btn-xr-exit" class="pill">✕ Salir</button>
+          <button id="btn-xr-undo" class="pill">Quitar último</button>
+        </header>
+        <p id="xr-status" class="hint"></p>
+        <footer class="bottombar">
+          <div id="xr-careers" class="careers"></div>
+          <div class="controls">
+            <span class="spacer"></span>
+            <button id="btn-xr-shutter" class="shutter" aria-label="Tomar foto"><span></span></button>
+            <span class="spacer"></span>
+          </div>
+        </footer>
+      </div>
+
+      <!-- Pantalla inicial -->
+      <section id="splash">
+        <div class="splash-card">
+          <div class="logo" aria-hidden="true">
+            <span style="--c:#4cc9f0">💻</span><span style="--c:#ef476f">🩺</span><span style="--c:#ffb703">🏗️</span>
+          </div>
+          <h1>AR Carreras</h1>
+          <p class="lead">Tómate fotos con elementos 3D de tu carrera usando realidad aumentada.</p>
+          <ul class="features">
+            <li><b>Objetos 3D</b> laptop, corazón y grúa que puedes mover, escalar y girar.</li>
+            <li><b>Selfie</b> gafas, espejo frontal con estetoscopio o casco que siguen tu cara.</li>
+            <li><b>Filtros y marco</b> antes de capturar; guarda o comparte con un toque.</li>
+          </ul>
+          <button id="btn-start" class="primary">Abrir cámara</button>
+          <p id="splash-error" class="error" hidden></p>
+          <p class="fine">Funciona en iPhone y Android desde el navegador. La cámara se procesa solo en tu dispositivo.</p>
+        </div>
+      </section>
+
+      <!-- Resultado -->
+      <section id="result" hidden>
+        <img id="result-img" alt="Foto capturada" />
+        <div class="result-bar">
+          <p id="result-hint" class="fine"></p>
+          <div class="result-actions">
+            <button id="btn-retake" class="pill">Otra foto</button>
+            <button id="btn-save" class="pill">Guardar</button>
+            <button id="btn-share" class="primary">Compartir</button>
+          </div>
+        </div>
+      </section>
+
+      <div id="loading" hidden><div class="spinner"></div><p>Cargando…</p></div>
+      <div id="toast" role="status" hidden></div>
+      <div id="flash"></div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
